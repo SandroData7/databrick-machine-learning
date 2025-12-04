@@ -1,0 +1,149 @@
+# 📘 Integración ADLS Gen2 con Azure Databricks usando Access Connector + Unity Catalog
+
+## 📌 Resumen
+
+Este documento describe cómo conectar Azure Databricks (Unity Catalog) con un Data Lake Gen2 utilizando:
+
+- Access Connector for Azure Databricks
+- Managed Identity
+- Storage Credential
+- External Location
+- Unity Catalog schema
+
+Este método reemplaza `dbutils.fs.mount` y cumple con los requisitos de seguridad de UC.
+
+---
+
+## ✅ 1. Prerrequisitos
+
+### Requisitos en Azure
+
+Un Azure Data Lake Storage Gen2:
+- `datadatabrick`
+
+Un contenedor:
+- `dev`
+
+Un workspace Azure Databricks con Unity Catalog habilitado
+
+Permisos de Owner en la suscripción o Resource Group
+
+### Requisitos en Databricks
+
+- Ser metastore admin
+- Tener permisos para crear:
+  - Storage Credentials
+  - External Locations
+  - Schemas
+
+---
+
+## ✅ 2. Crear el Access Connector for Azure Databricks
+
+1. Ir al Portal de Azure
+2. Crear recurso:
+   - **Access Connector for Azure Databricks**
+3. Nombre sugerido:
+   - `ac-databricks-ibme`
+4. Seleccionar la misma región del workspace
+5. Crear
+
+El connector genera una **Managed Identity** que Databricks usará para acceder al Data Lake.
+
+---
+
+## ✅ 3. Asignar permisos RBAC en el ADLS Gen2
+
+1. Ir al Storage Account:
+   - **Storage Accounts → datadatabrick → Access Control (IAM) → Add role assignment**
+
+2. Asignar al Access Connector:
+
+### Roles obligatorios
+- ✔ Storage Blob Data Contributor
+- ✔ Storage Blob Data Reader
+
+### Scope
+- ✔ Nivel Storage Account completo
+
+---
+
+## ✅ 4. Crear el Storage Credential en Unity Catalog
+
+En Databricks:
+
+1. **Catalog → Storage Credentials → Create**
+2. Nombre:
+   - `cred_datadatabrick`
+3. Tipo:
+   - `Azure Managed Identity via Access Connector`
+4. Seleccionar el connector:
+   - `ac-databricks-ibme`
+5. Crear
+
+Este credential autoriza UC a usar la Managed Identity para acceder a ADLS.
+
+---
+
+## ✅ 5. Crear la External Location
+
+1. Ir a **Catalog → External Locations → Create**
+2. Nombre:
+   - `extloc_datadatabrick_dev`
+3. URL:
+   - `abfss://dev@datadatabrick.dfs.core.windows.net/`
+4. Storage Credential:
+   - `cred_datadatabrick`
+5. **Test Connection** → debe ser **Successful**
+6. Crear
+
+---
+
+## ✅ 6. Crear un schema en Unity Catalog asociado al Data Lake
+
+Ejecutar en un Notebook SQL:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS main.dev_schema
+LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/';
+```
+
+---
+
+## ✅ 7. Crear tablas en esa external location
+
+Ejemplo:
+
+```sql
+CREATE TABLE main.dev_schema.sales
+USING DELTA
+LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/sales/';
+```
+
+---
+
+## 🚀 8. Script SQL Automatizado
+
+```sql
+-- Crear Storage Credential (ejecutar como Metastore Admin)
+CREATE STORAGE CREDENTIAL cred_datadatabrick
+  USING (TYPE = 'AZURE_MANAGED_IDENTITY', AZURE_MANAGED_IDENTITY_ID = '/subscriptions/YOUR_SUBSCRIPTION_ID/resourcegroups/YOUR_RESOURCE_GROUP/providers/microsoft.databricks/accessconnectors/ac-databricks-ibme');
+
+-- Crear External Location
+CREATE EXTERNAL LOCATION extloc_datadatabrick_dev
+  URL = 'abfss://dev@datadatabrick.dfs.core.windows.net/'
+  WITH (STORAGE_CREDENTIAL = cred_datadatabrick);
+
+-- Crear Schema
+CREATE SCHEMA IF NOT EXISTS main.dev_schema
+  LOCATION = 'abfss://dev@datadatabrick.dfs.core.windows.net/';
+
+-- Crear Tabla
+CREATE TABLE main.dev_schema.sales
+  USING DELTA
+  LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/sales/';
+```
+
+---
+
+**Documentación oficial:** [Azure Databricks + ADLS Gen2 + UC](https://docs.microsoft.com/en-us/azure/databricks/)
