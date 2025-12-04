@@ -100,6 +100,19 @@ Este credential autoriza UC a usar la Managed Identity para acceder a ADLS.
 
 ---
 
+## ✅ 5.5 Crear un Catálogo en Unity Catalog
+
+Ejecutar en un Notebook SQL:
+
+```sql
+CREATE CATALOG IF NOT EXISTS ml_catalog
+MANAGED LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/ml_catalog';
+```
+
+Este catálogo alojará los esquemas y tablas de tu proyecto de Machine Learning.
+
+---
+
 ## ✅ 6. Crear un schema en Unity Catalog asociado al Data Lake
 
 Ejecutar en un Notebook SQL:
