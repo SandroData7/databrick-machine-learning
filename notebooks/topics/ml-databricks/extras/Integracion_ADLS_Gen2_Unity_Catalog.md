@@ -77,8 +77,9 @@ En Databricks:
    - `cred_datadatabrick`
 3. Tipo:
    - `Azure Managed Identity`
-4. Seleccionar el connector:
-   - `ac-databricks-data`
+4. Access connector ID:
+   - Copiar desde el portal Azure: en **ac-databricks-data**, copiar el valor que marca **Resource ID**
+   - Ejemplo: `/subscriptions/YOUR_SUBSCRIPTION_ID/resourcegroups/YOUR_RESOURCE_GROUP/providers/microsoft.databricks/accessconnectors/ac-databricks-data`
 5. Crear
 
 Este credential autoriza UC a usar la Managed Identity para acceder a ADLS.
