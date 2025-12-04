@@ -76,7 +76,7 @@ En Databricks:
 2. Nombre:
    - `cred_datadatabrick`
 3. Tipo:
-   - `Azure Managed Identity via Access Connector`
+   - `Azure Managed Identity`
 4. Seleccionar el connector:
    - `ac-databricks-data`
 5. Crear
