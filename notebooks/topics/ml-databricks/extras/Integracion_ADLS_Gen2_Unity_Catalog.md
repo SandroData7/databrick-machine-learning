@@ -44,7 +44,7 @@ Permisos de Owner en la suscripción o Resource Group
 2. Crear recurso:
    - **Access Connector for Azure Databricks**
 3. Nombre sugerido:
-   - `ac-databricks-ibme`
+   - `ac-databricks-data`
 4. Seleccionar la misma región del workspace
 5. Crear
 
@@ -78,7 +78,7 @@ En Databricks:
 3. Tipo:
    - `Azure Managed Identity via Access Connector`
 4. Seleccionar el connector:
-   - `ac-databricks-ibme`
+   - `ac-databricks-data`
 5. Crear
 
 Este credential autoriza UC a usar la Managed Identity para acceder a ADLS.
@@ -127,7 +127,7 @@ LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/sales/';
 ```sql
 -- Crear Storage Credential (ejecutar como Metastore Admin)
 CREATE STORAGE CREDENTIAL cred_datadatabrick
-  USING (TYPE = 'AZURE_MANAGED_IDENTITY', AZURE_MANAGED_IDENTITY_ID = '/subscriptions/YOUR_SUBSCRIPTION_ID/resourcegroups/YOUR_RESOURCE_GROUP/providers/microsoft.databricks/accessconnectors/ac-databricks-ibme');
+  USING (TYPE = 'AZURE_MANAGED_IDENTITY', AZURE_MANAGED_IDENTITY_ID = '/subscriptions/YOUR_SUBSCRIPTION_ID/resourcegroups/YOUR_RESOURCE_GROUP/providers/microsoft.databricks/accessconnectors/ac-databricks-data');
 
 -- Crear External Location
 CREATE EXTERNAL LOCATION extloc_datadatabrick_dev
