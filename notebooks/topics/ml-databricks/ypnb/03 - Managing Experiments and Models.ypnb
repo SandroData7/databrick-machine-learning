@@ -1,0 +1,20 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": { "language": "markdown" },
+      "source": [
+        "# 03 - Managing Experiments and Models\n",
+        "Stub generado a partir de `03 - Managing Experiments and Models.dbc`.\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": { "language": "python" },
+      "source": [
+        "# Código de ejemplo\n",
+        "print(\"Placeholder: Managing Experiments and Models\")\n"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": { "language": "markdown" },
+      "source": [
+        "# 02 - Training and Evaluating Machine Learning Models\n",
+        "Stub automáticamente generado a partir del `.dbc`.\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": { "language": "python" },
+      "source": [
+        "# Código de ejemplo\n",
+        "print(\"Placeholder: Training and Evaluating Machine Learning Models\")\n"
+      ]
+    }
+  ]
+}
