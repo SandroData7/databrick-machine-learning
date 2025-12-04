@@ -7,7 +7,7 @@ Este documento describe cómo conectar Azure Databricks (Unity Catalog) con un D
 - Access Connector for Azure Databricks
 - Managed Identity
 - Storage Credential
-- External Location
+- External Data
 - Unity Catalog schema
 
 Este método reemplaza `dbutils.fs.mount` y cumple con los requisitos de seguridad de UC.
@@ -33,7 +33,7 @@ Permisos de Owner en la suscripción o Resource Group
 - Ser metastore admin
 - Tener permisos para crear:
   - Storage Credentials
-  - External Locations
+  - External Data
   - Schemas
 
 ---
@@ -86,9 +86,9 @@ Este credential autoriza UC a usar la Managed Identity para acceder a ADLS.
 
 ---
 
-## ✅ 5. Crear la External Location
+## ✅ 5. Crear la External Data
 
-1. Ir a **Catalog → External Locations → Create**
+1. Ir a **Catalog → External Data → Create**
 2. Nombre:
    - `extloc_datadatabrick_dev`
 3. URL:
@@ -111,7 +111,7 @@ LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/';
 
 ---
 
-## ✅ 7. Crear tablas en esa external location
+## ✅ 7. Crear tablas en esa external data
 
 Ejemplo:
 
@@ -130,7 +130,7 @@ LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/sales/';
 CREATE STORAGE CREDENTIAL cred_datadatabrick
   USING (TYPE = 'AZURE_MANAGED_IDENTITY', AZURE_MANAGED_IDENTITY_ID = '/subscriptions/YOUR_SUBSCRIPTION_ID/resourcegroups/YOUR_RESOURCE_GROUP/providers/microsoft.databricks/accessconnectors/ac-databricks-data');
 
--- Crear External Location
+-- Crear External Data
 CREATE EXTERNAL LOCATION extloc_datadatabrick_dev
   URL = 'abfss://dev@datadatabrick.dfs.core.windows.net/'
   WITH (STORAGE_CREDENTIAL = cred_datadatabrick);
