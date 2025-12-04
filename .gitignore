@@ -1,0 +1,12 @@
+.env
+*.pyc
+__pycache__/
+*.egg-info/
+.DS_Store
+.vscode/
+.idea/
+*.log
+data/raw/
+data/processed/
+models/
+artifacts/
