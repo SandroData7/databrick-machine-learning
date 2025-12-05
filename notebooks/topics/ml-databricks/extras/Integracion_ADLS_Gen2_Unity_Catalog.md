@@ -118,20 +118,26 @@ Este catálogo alojará los esquemas y tablas de tu proyecto de Machine Learning
 Ejecutar en un Notebook SQL:
 
 ```sql
-CREATE SCHEMA IF NOT EXISTS main.dev_schema
-LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/';
+%sql
+CREATE SCHEMA IF NOT EXISTS ml_catalog.ml_models
+MANAGED LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/ml_catalog/ml_models/';
 ```
 
 ---
 
 ## ✅ 7. Crear tablas en esa external data
 
-Ejemplo:
+### Celda 1: Leer el archivo CSV desde la ruta
 
-```sql
-CREATE TABLE main.dev_schema.sales
-USING DELTA
-LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/sales/';
+```python
+df = spark.read.csv("abfss://dev@dataadatbrick.dfs.core.windows.net/nyc-taxi/", header=True, inferSchema=True)
+#display(df)
+```
+
+### Celda 2: Escribir el DataFrame como tabla Delta
+
+```python
+df.write.format("delta").mode("overwrite").saveAsTable("ml_catalog.ml_models.nyctaxi")
 ```
 
 ---
@@ -148,16 +154,38 @@ CREATE EXTERNAL LOCATION extloc_datadatabrick_dev
   URL = 'abfss://dev@datadatabrick.dfs.core.windows.net/'
   WITH (STORAGE_CREDENTIAL = cred_datadatabrick);
 
--- Crear Schema
-CREATE SCHEMA IF NOT EXISTS main.dev_schema
-  LOCATION = 'abfss://dev@datadatabrick.dfs.core.windows.net/';
+-- Crear Catálogo
+CREATE CATALOG IF NOT EXISTS ml_catalog
+MANAGED LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/ml_catalog';
 
--- Crear Tabla
-CREATE TABLE main.dev_schema.sales
-  USING DELTA
-  LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/sales/';
+-- Crear Schema
+CREATE SCHEMA IF NOT EXISTS ml_catalog.ml_models
+MANAGED LOCATION 'abfss://dev@datadatabrick.dfs.core.windows.net/ml_catalog/ml_models/';
+
+-- Crear Tabla desde CSV
+-- Ejecutar en Python:
+-- df = spark.read.csv("abfss://dev@dataadatbrick.dfs.core.windows.net/nyc-taxi/", header=True, inferSchema=True)
+-- df.write.format("delta").mode("overwrite").saveAsTable("ml_catalog.ml_models.nyctaxi")
 ```
 
 ---
 
 **Documentación oficial:** [Azure Databricks + ADLS Gen2 + UC](https://docs.microsoft.com/en-us/azure/databricks/)
+
+---
+
+## 🎵 Bonus Track: Comandos Útiles
+
+### Comprobar si tu External Location funciona
+
+```sql
+DESCRIBE EXTERNAL LOCATION extloc_datadatabrick_dev;
+```
+
+### Comando para borrar un catálogo
+
+```sql
+DROP CATALOG IF EXISTS nombre_catalog CASCADE;
+```
+
+Reemplaza `nombre_catalog` con el nombre real del catálogo que deseas eliminar (ej: `ml_catalog`).
