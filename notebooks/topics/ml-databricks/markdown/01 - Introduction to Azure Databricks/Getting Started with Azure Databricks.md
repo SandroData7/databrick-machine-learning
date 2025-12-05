@@ -122,18 +122,3 @@ See also <a href="https://docs.azuredatabricks.net/user-guide/dbutils.html" targ
 ```python
 dbutils.fs.help()
 ```
-
----
-
-## 📌 Próximos pasos: Integración ADLS Gen2 con Unity Catalog
-
-Una vez domines los conceptos básicos de Azure Databricks, el siguiente paso es conectar tu Data Lake Gen2 con Unity Catalog para un acceso seguro y escalable a tus datos.
-
-**Referencia:** Consulta el documento de integración completo en:
-**📄 `../extras/Integracion_ADLS_Gen2_Unity_Catalog.md`**
-
-Este documento incluye:
-- Configuración del Access Connector for Azure Databricks
-- Creación de Storage Credentials
-- Setup de External Data locations
-- Scripts SQL automatizados para Unity Catalog
