@@ -387,28 +387,185 @@ Repite el proceso anterior para cada contenedor, reemplazando `bronze` y `databr
    - **URL**: `abfss://models-ml@datalakemylab2025.dfs.core.windows.net/`
    - **Storage Credential**: `credential-models-ml`
 
-#### Paso 3: Acceso desde notebooks
+#### Paso 3: Crear Catálogos, Schemas y Volúmenes en Unity Catalog
 
-Una vez configuradas las External Locations, puedes acceder desde notebooks usando:
+**IMPORTANTE**: En Unity Catalog 100%, el acceso directo vía `abfss://` está obsoleto (legacy). Debemos usar la estructura de tres niveles: **Catalog → Schema → Volume/Table**.
+
+##### 3.1. Crear External Location para el Catálogo raíz (opcional)
+
+Si tu workspace requiere especificar ubicación en el catálogo, crea primero una External Location base:
+
+1. Navega a: **Catalog** → **External Data** → **External Locations**
+2. Haz clic en **Create Location**
+3. Configura:
+   - **Location Name**: `datalake-root`
+   - **URL**: `abfss://bronze@datalakemylab2025.dfs.core.windows.net/`
+   - **Storage Credential**: `credential-bronze`
+4. Haz clic en **Create**
+
+##### 3.2. Crear Catálogo para Data Lake
+
+**Usando SQL en notebook de Databricks:**
+
+```sql
+-- Opción 1: Crear catálogo CON ubicación específica (recomendado si tu workspace lo requiere)
+CREATE CATALOG IF NOT EXISTS datalake_catalog
+MANAGED LOCATION 'abfss://bronze@datalakemylab2025.dfs.core.windows.net/catalogs/datalake'
+COMMENT 'Catálogo principal para Data Lake con capas Bronze, Silver y Gold';
+
+-- Opción 2: Crear catálogo SIN ubicación (usa la ubicación predeterminada del metastore)
+-- Solo usar si tu workspace NO requiere especificar ubicación
+-- CREATE CATALOG IF NOT EXISTS datalake_catalog
+-- COMMENT 'Catálogo principal para Data Lake con capas Bronze, Silver y Gold';
+
+-- Usar el catálogo
+USE CATALOG datalake_catalog;
+```
+
+##### 3.3. Crear Schemas para cada capa
+
+```sql
+-- Schema para capa Bronze (datos crudos)
+-- MANAGED LOCATION usa el nombre de la External Location creada anteriormente
+CREATE SCHEMA IF NOT EXISTS datalake_catalog.bronze
+MANAGED LOCATION 'abfss://bronze@datalakemylab2025.dfs.core.windows.net/bronze'
+COMMENT 'Capa Bronze: Datos crudos sin procesar';
+
+-- Schema para capa Silver (datos procesados)
+CREATE SCHEMA IF NOT EXISTS datalake_catalog.silver
+MANAGED LOCATION 'abfss://silver@datalakemylab2025.dfs.core.windows.net/silver'
+COMMENT 'Capa Silver: Datos limpios y transformados';
+
+-- Schema para capa Gold (datos agregados)
+CREATE SCHEMA IF NOT EXISTS datalake_catalog.gold
+MANAGED LOCATION 'abfss://gold@datalakemylab2025.dfs.core.windows.net/gold'
+COMMENT 'Capa Gold: Datos agregados y listos para análisis';
+```
+
+##### 3.4. Crear Catálogo y Schema para Modelos ML
+
+```sql
+-- Crear catálogo para modelos de Machine Learning
+CREATE CATALOG IF NOT EXISTS ml_catalog
+MANAGED LOCATION 'abfss://models-ml@datalakemylab2025.dfs.core.windows.net/catalogs/ml'
+COMMENT 'Catálogo para modelos y artefactos de Machine Learning';
+
+USE CATALOG ml_catalog;
+
+-- Schema para modelos
+CREATE SCHEMA IF NOT EXISTS ml_catalog.models
+MANAGED LOCATION 'abfss://models-ml@datalakemylab2025.dfs.core.windows.net/models'
+COMMENT 'Schema para almacenar modelos entrenados';
+```
+
+##### 3.4. Crear Volúmenes (opcional, para archivos no estructurados)
+
+Los volúmenes son útiles para almacenar archivos como CSVs, JSONs o artefactos de modelos:
+
+```sql
+-- Volumen para archivos raw en Bronze
+USE CATALOG datalake_catalog;
+USE SCHEMA bronze;
+
+CREATE VOLUME IF NOT EXISTS raw_files
+COMMENT 'Volumen para archivos CSV/JSON sin procesar';
+
+-- Volumen para artefactos de modelos
+USE CATALOG ml_catalog;
+USE SCHEMA models;
+
+CREATE VOLUME IF NOT EXISTS model_artifacts
+COMMENT 'Volumen para artefactos de modelos (checkpoints, logs, etc.)';
+```
+
+#### Paso 4: Acceso desde notebooks (Unity Catalog 100%)
+
+**⚠️ IMPORTANTE**: El acceso directo vía `abfss://` es **legacy** y no está permitido en Unity Catalog 100%. Usa la sintaxis de tres niveles.
+
+##### Acceso correcto (Unity Catalog 100%):
 
 ```python
-# Listar archivos en Bronze
-spark.sql("LIST 'abfss://bronze@datalakemylab2025.dfs.core.windows.net/'")
+# ✅ CORRECTO: Usar notación de tres niveles (catalog.schema.table)
 
-# O usando dbutils
-dbutils.fs.ls("abfss://bronze@datalakemylab2025.dfs.core.windows.net/")
+# Leer datos desde Bronze
+df_bronze = spark.read.table("datalake_catalog.bronze.raw_data")
 
-# Crear tabla externa en Unity Catalog
+# Leer datos desde Silver
+df_silver = spark.read.table("datalake_catalog.silver.cleaned_data")
+
+# Leer datos desde Gold
+df_gold = spark.read.table("datalake_catalog.gold.aggregated_data")
+
+# Crear tabla en Bronze desde CSV (usando volumen)
 spark.sql("""
-CREATE TABLE IF NOT EXISTS main.default.bronze_data
-USING DELTA
-LOCATION 'abfss://bronze@datalakemylab2025.dfs.core.windows.net/data/'
+CREATE TABLE IF NOT EXISTS datalake_catalog.bronze.raw_sales
+USING CSV
+OPTIONS (header 'true', inferSchema 'true')
+LOCATION 'dbfs:/Volumes/datalake_catalog/bronze/raw_files/sales.csv'
 """)
 
-# Acceso a diferentes capas
-df_bronze = spark.read.format("delta").load("abfss://bronze@datalakemylab2025.dfs.core.windows.net/data/")
-df_silver = spark.read.format("delta").load("abfss://silver@datalakemylab2025.dfs.core.windows.net/data/")
-df_gold = spark.read.format("delta").load("abfss://gold@datalakemylab2025.dfs.core.windows.net/data/")
+# Escribir DataFrame a Silver
+df_cleaned = df_bronze.dropna()
+df_cleaned.write.mode("overwrite").saveAsTable("datalake_catalog.silver.cleaned_sales")
+
+# Consultar con SQL
+spark.sql("""
+SELECT * 
+FROM datalake_catalog.gold.sales_summary
+WHERE revenue > 10000
+""").display()
+```
+
+##### Acceso a volúmenes para archivos:
+
+```python
+# Listar archivos en volumen de Bronze
+dbutils.fs.ls("/Volumes/datalake_catalog/bronze/raw_files")
+
+# Leer CSV desde volumen
+df = spark.read.csv(
+    "/Volumes/datalake_catalog/bronze/raw_files/data.csv",
+    header=True,
+    inferSchema=True
+)
+
+# Guardar artefactos de modelo en volumen
+import mlflow
+
+model_path = "/Volumes/ml_catalog/models/model_artifacts/my_model_v1"
+mlflow.sklearn.save_model(model, model_path)
+```
+
+##### Trabajar con modelos en Unity Catalog:
+
+```python
+import mlflow
+
+# Configurar MLflow para usar Unity Catalog
+mlflow.set_registry_uri("databricks-uc")
+
+# Registrar modelo en Unity Catalog
+model_uri = "runs:/<run_id>/model"
+mlflow.register_model(
+    model_uri=model_uri,
+    name="ml_catalog.models.taxi_fare_predictor"
+)
+
+# Cargar modelo desde Unity Catalog
+loaded_model = mlflow.pyfunc.load_model("models:/ml_catalog.models.taxi_fare_predictor/1")
+
+# Hacer predicciones
+predictions = loaded_model.predict(test_data)
+```
+
+##### ⛔ LEGACY (NO usar en Unity Catalog 100%):
+
+```python
+# ❌ OBSOLETO: Acceso directo vía abfss:// (solo funciona en clusters sin Unity Catalog)
+# NO USAR en entornos Unity Catalog 100%
+
+# df_bronze = spark.read.format("delta").load("abfss://bronze@...")  # ❌ LEGACY
+# dbutils.fs.ls("abfss://bronze@...")  # ❌ LEGACY
 ```
 
 ### Ventajas de este enfoque
