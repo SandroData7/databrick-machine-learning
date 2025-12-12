@@ -1,75 +1,40 @@
-# Instrucciones del Proyecto de Machine Learning en Databricks
+# Guía para Agentes de Código – Databricks ML
 
-Este repositorio contiene materiales de capacitación para flujos de trabajo de Machine Learning en Azure Databricks. Demuestra pipelines de ML de extremo a extremo usando PySpark, MLlib, MLflow e integración con Azure Machine Learning.
+Estas instrucciones condensan cómo trabajar productivamente en este repo de formación de ML con Azure Databricks, Spark, MLflow y Azure ML. Mantén el trabajo dentro de notebooks de Databricks y usa DBFS para datos/modelos.
 
-## Resumen de Arquitectura
+## Arquitectura y rutas clave
+- **Notebooks**: ejemplos en `notebooks/topics/ml-databricks/ypnb/` y material complementario en `notebooks/dbc/`, `notebooks/markdown/`.
+- **Datos**: CSV/JSON en `data/` (incluye subcarpetas como `retail-data/by-day/` y `DE-05/`). Carga en Spark, no local.
+- **Persistencia**: usa `/dbfs/...` para leer/escribir desde código Python; DBFS/almacenamiento Azure montado.
+- **Tracking**: MLflow integrado; opcionalmente sincronizado con Azure ML.
 
-- **Plataforma**: Azure Databricks (notebooks ejecutados en clusters con Spark)
-- **Almacenamiento de Datos**: DBFS (Databricks File System) o almacenamiento Azure montado
-- **Seguimiento de Experimentos**: MLflow integrado con Azure Machine Learning
-- **Despliegue de Modelos**: Azure ML para servicios web y puntuación en tiempo real
-- **Componentes Clave**:
-  - Notebooks en `notebooks/topics/ml-databricks/ypnb/` para ejemplos de capacitación
-  - Datos de muestra en `data/` (archivos CSV, JSON)
-  - Clusters de Databricks para procesamiento distribuido
+## Flujo de trabajo típico (Databricks)
+- Adjunta el notebook a un cluster (runtime ML recomendado).
+- Carga datos con Spark, ej.: `spark.read.csv('/dbfs/FileStore/path.csv', header=True, inferSchema=True)`.
+- Preprocesa con PySpark; convierte a Pandas sólo para modelos sklearn cuando sea necesario.
+- Encapsula featurización+modelo en `Pipeline` con `DataFrameMapper` (sklearn-pandas) para salida tipo DataFrame.
+- Ejecuta entrenamientos dentro de `mlflow.start_run()` y registra métricas/artefactos.
+- Guarda modelos/artefactos en `/dbfs/outputs/` y registra/implanta en Azure ML si aplica.
 
-## Patrones de Flujo de Datos
+## Patrones y convenciones del proyecto
+- **Featurización**: separa numéricas/categóricas. Numéricas → `SimpleImputer(strategy='median')` + `StandardScaler`. Categóricas → `OneHotEncoder(handle_unknown='ignore', sparse=False)`.
+- **Modelado**: ejemplos con `GradientBoostingRegressor` integrados en `Pipeline` tras `DataFrameMapper`.
+- **Errores de datos**: elimina NA en objetivo antes de entrenar: `df.dropna(subset=['target'])`.
+- **Rutas**: siempre `/dbfs/...` en código; para Spark, puedes usar rutas DBFS montadas.
+- **MLflow**: registra `rmse`, `mae`, `r2` y gráficos como artefactos.
 
-Los datos fluyen desde archivos crudos → DataFrames de Spark → featurización → entrenamiento de modelos → evaluación → registro/despliegue.
+## Integración con Azure ML
+- Autenticación: `Workspace(subscription_id, resource_group, workspace_name)` con login de dispositivo.
+- Tracking: `mlflow.set_tracking_uri(ws.get_mlflow_tracking_uri())` para sincronizar.
+- Registro: `Model.register()` en el workspace; despliegue como servicio web para scoring en tiempo real.
 
-- Cargar datos: `spark.read.load('/FileStore/file.csv', format='csv', header='true', schema=schema)`
-- Procesar: Usar funciones SQL de PySpark (`withColumn`, `select`, etc.)
-- Featurizar: Pipelines de sklearn con DataFrameMapper para preprocesamiento numérico/categórico
-- Entrenar: Ajustar modelos como GradientBoostingRegressor dentro de ejecuciones de MLflow
-- Registrar: `mlflow.log_metric()`, `mlflow.log_artifact()` para seguimiento
+## Ejemplo representativo (ver notebooks)
+- `02 - Training and Evaluating Machine Learning Models/2.0 Train and Validate ML Model.ipynb`: usa `DataFrameMapper` + `GradientBoostingRegressor` y OHE en categóricas; entrena y registra con MLflow.
+- `04 - Integrating Azure Databricks and Azure Machine Learning/`: patrones de conexión y despliegue con Azure ML.
+- `03 - Managing Experiments and Models/`: gestión de experimentos y artefactos con MLflow.
 
-Ejemplo de `notebooks/topics/ml-databricks/ypnb/02 - Training and Evaluating Machine Learning Models/2.0 Train and Validate ML Model.ipynb`:
-```python
-numerical = ['passengerCount', 'tripDistance']
-categorical = ['hour_of_day', 'day_of_week']
+## Comandos útiles en notebooks
+- Instalar SDK: `%pip install azureml-sdk[databricks]`
+- Preparar salida: `dbutils.fs.mkdirs('outputs')`; ruta modelo: `os.path.join('/dbfs', 'outputs', 'model.pkl')`
 
-numeric_transformations = [([f], Pipeline(steps=[
-  ('imputer', SimpleImputer(strategy='median')),
-  ('scaler', StandardScaler())])) for f in numerical]
-
-categorical_transformations = [([f], OneHotEncoder(handle_unknown='ignore', sparse=False)) for f in categorical]
-
-clf = Pipeline(steps=[('preprocessor', DataFrameMapper(transformations, df_out=True)), 
-                      ('regressor', GradientBoostingRegressor())])
-```
-
-## Flujos de Trabajo de Desarrollo
-
-- **Configuración del Entorno**: Adjuntar notebooks a clusters de Databricks (runtime con bibliotecas ML preinstaladas)
-- **Instalación de Paquetes**: Usar `%pip install azureml-sdk[databricks]` en celdas de notebook
-- **Seguimiento de Experimentos**: Establecer `mlflow.set_tracking_uri(ws.get_mlflow_tracking_uri())` para integración con Azure ML
-- **Registro de Modelos**: `Model.register()` en el workspace de Azure ML
-- **Despliegue**: Crear servicios web vía SDK de Azure ML para inferencia en tiempo real
-
-Comandos no obvios:
-- Autenticar Azure ML: Ejecutar `ws = Workspace(subscription_id, resource_group, workspace_name)` y seguir el login de dispositivo
-- Guardar modelos en DBFS: `dbutils.fs.mkdirs('outputs'); model_file_path = os.path.join('/dbfs', 'outputs', 'model.pkl')`
-
-## Convenciones del Proyecto
-
-- **Preprocesamiento**: Separar características numéricas/categóricas con transformadores específicos (imputador mediano + escalador para numérico, OneHotEncoder para categórico)
-- **Registro de Modelos**: Registrar RMSE, MAE, R2 dentro de ejecuciones de MLflow; guardar gráficos como artefactos
-- **Manejo de Datos**: Usar DataFrames de Spark para datasets grandes; convertir a Pandas para compatibilidad con sklearn
-- **Manejo de Errores**: Eliminar NA en columna objetivo antes del entrenamiento: `df.dropna(subset=['target'])`
-- **Rutas de Archivos**: Usar prefijo `/dbfs/` para rutas DBFS en código Python
-
-Diferencias con prácticas estándar:
-- Sin entornos Python locales; todo se ejecuta en clusters de Databricks
-- Modelos guardados como archivos .pkl en DBFS, registrados en Azure ML para despliegue
-- Featurización usa DataFrameMapper de sklearn-pandas en lugar de ColumnTransformer para salida DataFrame
-
-## Puntos de Integración
-
-- **Workspace de Azure ML**: Conectar vía SDK para seguimiento de experimentos y registro de modelos
-- **MLflow**: Rastrea ejecuciones, métricas, artefactos; sincroniza con Azure ML
-- **DBFS de Databricks**: Almacenamiento persistente para modelos y datos
-- **Almacenamiento Azure**: Montar contenedores para datasets grandes
-
-Notebooks de referencia:
-- `notebooks/topics/ml-databricks/ypnb/04 - Integrating Azure Databricks and Azure Machine Learning/` para patrones de integración con Azure ML
-- `notebooks/topics/ml-databricks/ypnb/03 - Managing Experiments and Models/` para uso de MLflow
+Si algo no está claro o falta (p.ej., comandos de build/tests fuera de notebooks), avísame y lo ampliamos según tu flujo.
